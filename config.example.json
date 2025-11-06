@@ -1,0 +1,34 @@
+{
+  "comment": "常用查詢設定檔範例",
+  "description": "此檔案定義權證爬蟲的常用篩選條件，股票代號需在執行時提供",
+  "examples": {
+    "example1_元大權證": {
+      "headless": true,
+      "max_pages": null,
+      "filter_name": "元大"
+    },
+    "example2_統一權證前5頁": {
+      "headless": true,
+      "max_pages": 5,
+      "filter_name": "統一"
+    },
+    "example3_無篩選全部資料": {
+      "headless": false,
+      "max_pages": null,
+      "filter_name": null
+    }
+  },
+  "field_descriptions": {
+    "headless": "是否使用 headless 模式（true=背景執行, false=顯示瀏覽器）",
+    "max_pages": "限制爬取最大頁數（null=全部頁面, 數字=指定頁數）",
+    "filter_name": "篩選權證名稱包含的文字（null=不篩選, 字串=篩選條件）"
+  },
+  "usage": {
+    "command_format": "uv run run.py <股票代號> [-c 設定檔] [-n]",
+    "examples_commands": [
+      "uv run run.py 6669              # 使用預設 config.json 查詢 6669",
+      "uv run run.py 2330 -c my.json  # 使用自訂設定檔查詢 2330",
+      "uv run run.py 2330 -n          # 普通查詢 2330（無篩選）"
+    ]
+  }
+}
