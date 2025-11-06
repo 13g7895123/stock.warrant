@@ -301,6 +301,39 @@ uv run scraper.py 6669 > output.txt
 - [ ] Web 介面
 - [ ] Docker 容器化
 
+## Docker 部署
+
+本專案支援 Docker 容器化部署。
+
+### 快速開始
+
+```bash
+# 1. 複製環境變數範本
+cp .env.docker .env
+
+# 2. 編輯 .env 填入 LINE Bot 憑證
+nano .env
+
+# 3. 啟動服務
+docker-compose up -d
+
+# 4. 查看日誌
+docker-compose logs -f
+```
+
+### Docker Compose 服務
+
+- **web**: LINE Bot 主服務（Port 5000）
+- **nginx**: 反向代理（Port 80/443，可選）
+
+詳細說明請參考 [Docker 部署指南](DOCKER.md)
+
+### 使用 Nginx 反向代理
+
+```bash
+docker-compose --profile with-nginx up -d
+```
+
 ## 授權
 
 MIT License
