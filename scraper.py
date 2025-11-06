@@ -27,10 +27,11 @@ class WarrantScraper:
     BASE_URL = "https://histock.tw/stock/warrant.aspx"
     MAX_RETRIES = 3
     
-    def __init__(self, stock_code: str, headless: bool = False, max_pages: Optional[int] = None):
+    def __init__(self, stock_code: str, headless: bool = False, max_pages: Optional[int] = None, filter_name: Optional[str] = None):
         self.stock_code = stock_code
         self.headless = headless
         self.max_pages = max_pages
+        self.filter_name = filter_name
         self.warrants: List[Dict[str, str]] = []
         self.failed_pages: List[int] = []
         self.browser: Optional[Browser] = None
@@ -132,6 +133,10 @@ class WarrantScraper:
                         '剩餘天數': remaining_days.strip()
                     }
                     
+                    # 篩選條件：權證名稱包含指定文字
+                    if self.filter_name and self.filter_name not in warrant_data['權證名稱']:
+                        continue
+                    
                     warrants.append(warrant_data)
                     
                 except Exception as e:
@@ -193,17 +198,12 @@ class WarrantScraper:
                         logger.info(f"偵測到總共有 {last_page} 頁")
                 
                 # 累積資料
-                if page_warrants:
-                    self.warrants.extend(page_warrants)
-                    progress_info = f"第 {page_number}"
-                    if last_page:
-                        progress_info += f"/{last_page}"
-                    progress_info += f" 頁，累計 {len(self.warrants)} 筆"
-                    logger.info(progress_info)
-                else:
-                    # 如果當前頁面沒有資料，視為已到達最後
-                    logger.info(f"第 {page_number} 頁無資料，停止爬取")
-                    break
+                self.warrants.extend(page_warrants)
+                progress_info = f"第 {page_number}"
+                if last_page:
+                    progress_info += f"/{last_page}"
+                progress_info += f" 頁，本頁 {len(page_warrants)} 筆，累計 {len(self.warrants)} 筆"
+                logger.info(progress_info)
                 
                 # 判斷是否繼續
                 if last_page and page_number >= last_page:
@@ -275,14 +275,22 @@ async def main():
         default=None,
         help='限制爬取的最大頁數 (預設: 全部頁面)'
     )
+    parser.add_argument(
+        '--filter-name',
+        type=str,
+        default=None,
+        help='篩選權證名稱包含指定文字 (例如: 元大)'
+    )
     
     args = parser.parse_args()
     
     logger.info(f"開始爬取股票代號: {args.stock_code}")
     if args.max_pages:
         logger.info(f"限制爬取頁數: {args.max_pages} 頁")
+    if args.filter_name:
+        logger.info(f"篩選權證名稱包含: {args.filter_name}")
     
-    scraper = WarrantScraper(args.stock_code, args.headless, args.max_pages)
+    scraper = WarrantScraper(args.stock_code, args.headless, args.max_pages, args.filter_name)
     
     try:
         await scraper.scrape_all_pages()
