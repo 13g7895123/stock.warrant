@@ -27,9 +27,10 @@ class WarrantScraper:
     BASE_URL = "https://histock.tw/stock/warrant.aspx"
     MAX_RETRIES = 3
     
-    def __init__(self, stock_code: str, headless: bool = False):
+    def __init__(self, stock_code: str, headless: bool = False, max_pages: Optional[int] = None):
         self.stock_code = stock_code
         self.headless = headless
+        self.max_pages = max_pages
         self.warrants: List[Dict[str, str]] = []
         self.failed_pages: List[int] = []
         self.browser: Optional[Browser] = None
@@ -209,6 +210,11 @@ class WarrantScraper:
                     logger.info(f"已到達最後一頁 (第 {last_page} 頁)")
                     break
                 
+                # 檢查是否達到使用者指定的最大頁數
+                if self.max_pages and page_number >= self.max_pages:
+                    logger.info(f"已達到指定的最大頁數 (第 {self.max_pages} 頁)")
+                    break
+                
                 page_number += 1
                 
                 # 頁面之間短暫延遲，避免請求過快
@@ -228,12 +234,12 @@ class WarrantScraper:
             return
         
         # 輸出標題
-        print("權證名稱,代號,價格,價內外,剩餘天數")
+        print("權證名稱|代號|價格|價內外|剩餘天數")
         print("-"*80)
         
         # 輸出每筆資料
         for warrant in self.warrants:
-            print(f"{warrant['權證名稱']},{warrant['代號']},{warrant['價格']},{warrant['價內外']},{warrant['剩餘天數']}")
+            print(f"{warrant['權證名稱']}|{warrant['代號']}|{warrant['價格']}|{warrant['價內外']}|{warrant['剩餘天數']}")
         
         # 統計資訊
         print("="*80)
@@ -263,12 +269,20 @@ async def main():
         action='store_true',
         help='使用 headless 模式執行 (背景執行，不顯示瀏覽器視窗)'
     )
+    parser.add_argument(
+        '--max-pages',
+        type=int,
+        default=None,
+        help='限制爬取的最大頁數 (預設: 全部頁面)'
+    )
     
     args = parser.parse_args()
     
     logger.info(f"開始爬取股票代號: {args.stock_code}")
+    if args.max_pages:
+        logger.info(f"限制爬取頁數: {args.max_pages} 頁")
     
-    scraper = WarrantScraper(args.stock_code, args.headless)
+    scraper = WarrantScraper(args.stock_code, args.headless, args.max_pages)
     
     try:
         await scraper.scrape_all_pages()
