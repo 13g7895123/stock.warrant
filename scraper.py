@@ -111,15 +111,16 @@ class WarrantScraper:
                 try:
                     cells = await row.query_selector_all('td')
                     
-                    if len(cells) < 5:
+                    if len(cells) < 3:
                         continue
                     
                     # 提取各欄位資料
+                    # 價內外程度在倒數第三欄，剩餘天數在最後一欄
                     warrant_name = await cells[0].inner_text()
                     warrant_code = await cells[1].inner_text()
                     price = await cells[2].inner_text()
-                    moneyness = await cells[3].inner_text()  # 價內外程度
-                    remaining_days = await cells[4].inner_text()
+                    moneyness = await cells[-3].inner_text()  # 倒數第三欄：價內外程度
+                    remaining_days = await cells[-1].inner_text()  # 最後一欄：剩餘天數
                     
                     # 清理資料
                     warrant_data = {
