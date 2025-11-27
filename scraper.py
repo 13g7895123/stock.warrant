@@ -301,5 +301,76 @@ async def main():
         logger.error(f"執行過程發生錯誤: {e}", exc_info=True)
 
 
+class OutOfMoneyWarrantScraper(WarrantScraper):
+    """價外權證爬蟲 - 專門爬取價外權證"""
+    
+    def __init__(self, stock_code: str, headless: bool = False, max_pages: Optional[int] = None):
+        # 不使用 filter_name，因為我們要用價內外程度來篩選
+        super().__init__(stock_code, headless, max_pages, filter_name=None)
+        self.out_of_money_warrants: List[Dict[str, str]] = []
+    
+    def is_out_of_money(self, moneyness_str: str) -> bool:
+        """
+        判斷是否為價外權證
+        只要包含「價外」文字就是價外權證
+        
+        Args:
+            moneyness_str: 價內外程度字串，例如 "價外 10.65%", "價內 5.2%", "平價"
+        
+        Returns:
+            True 如果是價外權證，False 否則
+        """
+        try:
+            # 簡單判斷：只要包含「價外」就是價外權證
+            return '價外' in moneyness_str
+            
+        except (AttributeError, TypeError):
+            logger.warning(f"無法解析價內外程度: {moneyness_str}")
+            return False
+    
+    async def extract_warrant_data(self) -> List[Dict[str, str]]:
+        """覆寫父類方法，加入價外篩選邏輯"""
+        all_warrants = await super().extract_warrant_data()
+        
+        # 篩選價外權證
+        out_warrants = []
+        for warrant in all_warrants:
+            if self.is_out_of_money(warrant['價內外']):
+                out_warrants.append(warrant)
+        
+        logger.debug(f"本頁共 {len(all_warrants)} 筆，價外 {len(out_warrants)} 筆")
+        return out_warrants
+    
+    def print_results(self):
+        """輸出價外權證的爬取結果"""
+        print("\n" + "="*80)
+        print("價外權證資料爬取結果")
+        print("="*80)
+        
+        if not self.warrants:
+            print("未找到任何價外權證資料")
+            return
+        
+        # 輸出標題
+        print("權證名稱|代號|價格|價內外|剩餘天數")
+        print("-"*80)
+        
+        # 輸出每筆資料
+        for warrant in self.warrants:
+            print(f"{warrant['權證名稱']}|{warrant['代號']}|{warrant['價格']}|{warrant['價內外']}|{warrant['剩餘天數']}")
+        
+        # 統計資訊
+        print("="*80)
+        print(f"統計資訊:")
+        print(f"  價外權證總筆數: {len(self.warrants)}")
+        
+        if self.failed_pages:
+            print(f"  失敗頁數: {len(self.failed_pages)} ({', '.join(map(str, self.failed_pages))})")
+        else:
+            print(f"  失敗頁數: 0")
+        
+        print("="*80 + "\n")
+
+
 if __name__ == "__main__":
     asyncio.run(main())

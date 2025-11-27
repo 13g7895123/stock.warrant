@@ -18,12 +18,15 @@ def parse_command(message: str) -> Dict[str, any]:
     支援的指令格式：
     - "快查 6669" → 快速查詢（元大 + 前3頁）
     - "查詢 2330" → 普通查詢（全部資料）
+    - "價外 6669" → 價外查詢（全部頁面）
+    - "價外 6669 5" → 價外查詢（指定頁數）
     - "幫助" / "help" → 顯示說明
     
     Returns:
         {
-            'type': 'quick' | 'normal' | 'help' | 'unknown',
+            'type': 'quick' | 'normal' | 'outofmoney' | 'help' | 'unknown',
             'stock_code': str (optional),
+            'max_pages': int (optional),
             'raw_message': str
         }
     """
@@ -50,6 +53,33 @@ def parse_command(message: str) -> Dict[str, any]:
         return {
             'type': 'normal',
             'stock_code': stock_code,
+            'raw_message': message
+        }
+    
+    # 價外查詢（帶頁數參數）
+    outofmoney_with_pages_pattern = r'^價外\s+(\d{4,6})\s+(\d+)$'
+    match = re.match(outofmoney_with_pages_pattern, message)
+    if match:
+        stock_code = match.group(1)
+        max_pages = int(match.group(2))
+        logger.info(f"解析到價外查詢指令: {stock_code}, 頁數: {max_pages}")
+        return {
+            'type': 'outofmoney',
+            'stock_code': stock_code,
+            'max_pages': max_pages,
+            'raw_message': message
+        }
+    
+    # 價外查詢（不指定頁數，查全部）
+    outofmoney_pattern = r'^價外\s+(\d{4,6})$'
+    match = re.match(outofmoney_pattern, message)
+    if match:
+        stock_code = match.group(1)
+        logger.info(f"解析到價外查詢指令: {stock_code}, 頁數: 全部")
+        return {
+            'type': 'outofmoney',
+            'stock_code': stock_code,
+            'max_pages': None,
             'raw_message': message
         }
     
@@ -81,9 +111,16 @@ def get_help_message() -> str:
 指令: 查詢 股票代號
 範例: 查詢 2330
 
-💡 說明:
+� 價外查詢（只顯示價外權證）
+指令: 價外 股票代號 [頁數]
+範例: 
+• 價外 6669     （查全部頁面）
+• 價外 6669 5   （只查前5頁）
+
+�💡 說明:
 • 快查: 篩選元大權證，只查前3頁
 • 查詢: 不篩選，查詢所有頁面的權證
+• 價外: 只顯示價外權證（價內外<0），可自訂頁數
 
 ❓ 需要幫助？
 輸入「幫助」查看此說明
@@ -96,9 +133,11 @@ def get_unknown_command_message() -> str:
 ❌ 無法識別的指令
 
 請使用以下格式:
-• 快查 6669  （元大權證查詢）
-• 查詢 2330  （完整查詢）
-• 幫助      （查看說明）
+• 快查 6669     （元大權證查詢）
+• 查詢 2330     （完整查詢）
+• 價外 6669     （價外權證查詢，全部頁面）
+• 價外 6669 5   （價外權證查詢，指定頁數）
+• 幫助          （查看說明）
 
 💡 股票代號為 4-6 位數字
 """

@@ -11,7 +11,7 @@ import sys
 
 # 加入上層目錄到路徑，以便導入 scraper
 sys.path.append(str(Path(__file__).parent.parent))
-from scraper import WarrantScraper
+from scraper import WarrantScraper, OutOfMoneyWarrantScraper
 
 
 logger = logging.getLogger(__name__)
@@ -131,13 +131,64 @@ async def handle_normal_query(stock_code: str) -> Dict[str, any]:
         }
 
 
+async def handle_outofmoney_query(stock_code: str, max_pages: Optional[int] = None) -> Dict[str, any]:
+    """
+    價外查詢：只查詢價外權證（價內外程度<0）
+    - filter: 價內外程度為負值
+    - max_pages: 可自訂頁數，預設全部
+    - headless: true
+    
+    Args:
+        stock_code: 股票代號
+        max_pages: 最大查詢頁數，None 表示全部
+    
+    Returns:
+        {
+            'success': bool,
+            'warrants': List[Dict],
+            'total': int,
+            'max_pages': int or '全部',
+            'error': str (if failed)
+        }
+    """
+    try:
+        logger.info(f"執行價外查詢: {stock_code}, 頁數: {max_pages if max_pages else '全部'}")
+        
+        scraper = OutOfMoneyWarrantScraper(
+            stock_code=stock_code,
+            headless=True,
+            max_pages=max_pages
+        )
+        
+        await scraper.scrape_all_pages()
+        
+        result = {
+            'success': True,
+            'warrants': scraper.warrants,
+            'total': len(scraper.warrants),
+            'filter': '價外（<0%）',
+            'max_pages': max_pages if max_pages else '全部',
+            'failed_pages': scraper.failed_pages
+        }
+        
+        logger.info(f"價外查詢完成: 找到 {result['total']} 筆價外權證")
+        return result
+        
+    except Exception as e:
+        logger.error(f"價外查詢失敗: {e}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
 def format_warrant_message(result: Dict[str, any], query_type: str = "快查") -> str:
     """
     格式化權證查詢結果為 LINE 訊息
     
     Args:
         result: 查詢結果
-        query_type: "快查" 或 "查詢"
+        query_type: "快查" 或 "查詢" 或 "價外"
     
     Returns:
         格式化的訊息字串
@@ -154,6 +205,9 @@ def format_warrant_message(result: Dict[str, any], query_type: str = "快查") -
     # 標題
     if query_type == "快查":
         header = f"🔍 快查結果 ({result['filter']})\n找到 {total} 筆資料（前{result['max_pages']}頁）\n"
+    elif query_type == "價外":
+        pages_text = f"前{result['max_pages']}頁" if result['max_pages'] != '全部' else "全部頁面"
+        header = f"📉 價外查詢結果 ({result['filter']})\n找到 {total} 筆價外權證（{pages_text}）\n"
     else:
         header = f"🔍 查詢結果\n找到 {total} 筆資料（全部頁面）\n"
     

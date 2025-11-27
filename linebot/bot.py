@@ -23,7 +23,7 @@ from linebot.v3.webhooks import (
 from dotenv import load_dotenv
 
 from .commands import parse_command, get_help_message, get_unknown_command_message, validate_stock_code
-from .handlers import handle_quick_query, handle_normal_query, format_warrant_message
+from .handlers import handle_quick_query, handle_normal_query, handle_outofmoney_query, format_warrant_message
 
 
 # 載入環境變數
@@ -97,7 +97,7 @@ def handle_message(event):
         reply_text = get_unknown_command_message()
         send_reply(reply_token, reply_text)
     
-    elif command['type'] in ['quick', 'normal']:
+    elif command['type'] in ['quick', 'normal', 'outofmoney']:
         stock_code = command.get('stock_code')
         
         # 驗證股票代號
@@ -111,27 +111,33 @@ def handle_message(event):
         send_reply(reply_token, processing_msg)
         
         # 執行查詢（在背景執行）
+        max_pages = command.get('max_pages', None)
         asyncio.run(process_query_and_push(
             command['type'],
             stock_code,
-            event.source.user_id
+            event.source.user_id,
+            max_pages
         ))
 
 
-async def process_query_and_push(query_type: str, stock_code: str, user_id: str):
+async def process_query_and_push(query_type: str, stock_code: str, user_id: str, max_pages=None):
     """
     執行查詢並推送結果
     
     Args:
-        query_type: 'quick' 或 'normal'
+        query_type: 'quick', 'normal' 或 'outofmoney'
         stock_code: 股票代號
         user_id: LINE 用戶 ID
+        max_pages: 最大頁數（僅適用於 outofmoney 查詢）
     """
     try:
         # 執行查詢
         if query_type == 'quick':
             result = await handle_quick_query(stock_code)
             reply_text = format_warrant_message(result, "快查")
+        elif query_type == 'outofmoney':
+            result = await handle_outofmoney_query(stock_code, max_pages)
+            reply_text = format_warrant_message(result, "價外")
         else:
             result = await handle_normal_query(stock_code)
             reply_text = format_warrant_message(result, "查詢")
